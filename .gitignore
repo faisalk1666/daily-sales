@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Expo
+.expo/
+.expo-shared/
+dist/
+npm-debug.*
+.env
+.env.local
+.env.*.local
+
+# React Native
+.DS_Store
+.watchman-cookie-test
+.gradle/
+local.properties
+
+# Build artifacts
+android/
+ios/
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*~
+.DS_Store
+*.iml
+*.pbxproj
+*.xcworkspace/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# EAS Build
+eas-build-job-*.json
+
+# Credentials (never commit)
+firebase.js
+
+# Misc
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

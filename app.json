@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Kabir Aqua",
+    "slug": "new-kabir-aqua",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#eef4f8"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.kabiraqua.app"
+    },
+    "android": {
+      "package": "com.kabiraqua.app"
+    },
+    "plugins": [],
+    "extra": {
+      "eas": {
+        "projectId": "af2cbb7d-db52-427c-a56c-212c709b3884"
+      }
+    },
+    "owner": "faisk16"
+  }
+}
