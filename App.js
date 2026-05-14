@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import CustomerListScreen from './screens/CustomerListScreen';
 import CustomerDetailScreen from './screens/CustomerDetailScreen';
 import AddEntryScreen from './screens/AddEntryScreen';
+import BillCalculatorScreen from './screens/BillCalculatorScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -38,6 +39,11 @@ export default function App() {
           name="AddEntry"
           component={AddEntryScreen}
           options={{ title: '' }}
+        />
+        <Stack.Screen
+          name="BillCalculator"
+          component={BillCalculatorScreen}
+          options={{ title: 'Bill Calculator' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

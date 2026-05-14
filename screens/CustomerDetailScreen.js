@@ -19,13 +19,20 @@ import {
   writeBatch,
   deleteDoc,
   doc,
+  updateDoc,
+  where,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
+  addDays,
   formatEntryDate,
+  formatLongDate,
   formatMonthKey,
   getCurrentMonthKey,
   getMonthKeyFromDateString,
+  normalizeDate,
+  parseDateString,
+  toDateString,
 } from '../utils/sales';
 
 export default function CustomerDetailScreen({ route, navigation }) {
@@ -36,6 +43,13 @@ export default function CustomerDetailScreen({ route, navigation }) {
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [confirmName, setConfirmName] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [entryModalVisible, setEntryModalVisible] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState(null);
+  const [editDate, setEditDate] = useState(normalizeDate(new Date()));
+  const [editQuantity, setEditQuantity] = useState('');
+  const [savingEntry, setSavingEntry] = useState(false);
+  const [entryDeleteVisible, setEntryDeleteVisible] = useState(false);
+  const [deletingEntry, setDeletingEntry] = useState(false);
 
   useLayoutEffect(() => {
     navigation.setOptions({ title: customerName });
@@ -114,10 +128,119 @@ export default function CustomerDetailScreen({ route, navigation }) {
     }
   };
 
+  const openEntryEditor = (entry) => {
+    setSelectedEntry(entry);
+    setEditDate(parseDateString(entry.date));
+    setEditQuantity(String(entry.quantity ?? ''));
+    setEntryModalVisible(true);
+  };
+
+  const closeEntryEditor = (force = false) => {
+    if (savingEntry && !force) {
+      return;
+    }
+    setEntryModalVisible(false);
+    setEntryDeleteVisible(false);
+    setSelectedEntry(null);
+    setEditDate(normalizeDate(new Date()));
+    setEditQuantity('');
+  };
+
+  const changeEditDay = (amount) => {
+    const nextDate = addDays(editDate, amount);
+    const today = normalizeDate(new Date());
+    if (nextDate <= today) {
+      setEditDate(nextDate);
+    }
+  };
+
+  const handleSaveEntry = async () => {
+    const quantityValue = parseInt(editQuantity, 10);
+    if (!selectedEntry) {
+      return;
+    }
+
+    if (!editQuantity.trim() || isNaN(quantityValue) || quantityValue <= 0) {
+      Alert.alert('Invalid quantity', 'Please enter a valid number of jugs.');
+      return;
+    }
+
+    setSavingEntry(true);
+    try {
+      const nextDateString = toDateString(editDate);
+      const entryRef = doc(db, 'customers', customerId, 'entries', selectedEntry.id);
+
+      if (nextDateString === selectedEntry.date) {
+        await updateDoc(entryRef, {
+          date: nextDateString,
+          quantity: quantityValue,
+        });
+      } else {
+        const entriesRef = collection(db, 'customers', customerId, 'entries');
+        const matchingEntries = await getDocs(query(entriesRef, where('date', '==', nextDateString)));
+        const batch = writeBatch(db);
+
+        if (!matchingEntries.size) {
+          batch.update(entryRef, {
+            date: nextDateString,
+            quantity: quantityValue,
+          });
+        } else {
+          const targetEntry = matchingEntries.docs[0];
+          const mergedQuantity = (Number(targetEntry.data().quantity) || 0) + quantityValue;
+          batch.update(targetEntry.ref, {
+            date: nextDateString,
+            quantity: mergedQuantity,
+          });
+          batch.delete(entryRef);
+        }
+
+        await batch.commit();
+      }
+
+      closeEntryEditor(true);
+    } catch (error) {
+      Alert.alert('Update failed', 'Could not update this entry right now. Please try again.');
+    } finally {
+      setSavingEntry(false);
+    }
+  };
+
+  const openDeleteEntryConfirm = () => {
+    if (!selectedEntry || savingEntry) {
+      return;
+    }
+    setEntryDeleteVisible(true);
+  };
+
+  const handleDeleteEntry = async () => {
+    if (!selectedEntry) {
+      return;
+    }
+
+    setDeletingEntry(true);
+    try {
+      await deleteDoc(doc(db, 'customers', customerId, 'entries', selectedEntry.id));
+      closeEntryEditor(true);
+    } catch (error) {
+      Alert.alert('Delete failed', 'Could not delete this entry right now. Please try again.');
+    } finally {
+      setDeletingEntry(false);
+      setEntryDeleteVisible(false);
+    }
+  };
+
   const renderEntry = (item, index, total) => (
     <View key={item.id} style={[styles.entryRow, index === total - 1 && styles.lastRow]}>
-      <Text style={styles.entryDate}>{formatEntryDate(item.date)}</Text>
-      <Text style={styles.entryQty}>{item.quantity} jugs</Text>
+      <View style={styles.entryMain}>
+        <Text style={styles.entryDate}>{formatEntryDate(item.date)}</Text>
+        <Text style={styles.entryQty}>{item.quantity} jugs</Text>
+      </View>
+      <View style={styles.entryActions}>
+        <TouchableOpacity style={styles.entryEditButton} onPress={() => openEntryEditor(item)} activeOpacity={0.8}>
+          <Text style={styles.entryIconText}>✎</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -243,6 +366,107 @@ export default function CustomerDetailScreen({ route, navigation }) {
                 setDeleteVisible(false);
                 setConfirmName('');
               }}
+            >
+              <Text style={styles.modalCancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={entryModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeEntryEditor}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Edit Entry</Text>
+            <Text style={styles.modalText}>Change the delivery date or quantity. If you move it to a date that already exists, both entries will be merged.</Text>
+
+            <Text style={styles.fieldLabel}>Date</Text>
+            <View style={styles.editDateRow}>
+              <TouchableOpacity style={styles.editArrowButton} onPress={() => changeEditDay(-1)}>
+                <Text style={styles.editArrowText}>‹</Text>
+              </TouchableOpacity>
+
+              <View style={styles.editDateDisplay}>
+                <Text style={styles.editDateText}>{formatLongDate(editDate)}</Text>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.editArrowButton, toDateString(editDate) === toDateString(normalizeDate(new Date())) && styles.editArrowDisabled]}
+                onPress={() => changeEditDay(1)}
+                disabled={toDateString(editDate) === toDateString(normalizeDate(new Date()))}
+              >
+                <Text
+                  style={[
+                    styles.editArrowText,
+                    toDateString(editDate) === toDateString(normalizeDate(new Date())) && styles.editArrowTextDisabled,
+                  ]}
+                >
+                  ›
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.fieldLabel}>Number of Jugs</Text>
+            <TextInput
+              style={styles.confirmInput}
+              value={editQuantity}
+              onChangeText={setEditQuantity}
+              placeholder="e.g. 5"
+              placeholderTextColor="#91a3b0"
+              keyboardType="number-pad"
+              maxLength={5}
+            />
+
+            <TouchableOpacity
+              style={[styles.modalPrimaryButton, savingEntry && { opacity: 0.6 }]}
+              onPress={handleSaveEntry}
+              disabled={savingEntry}
+            >
+              <Text style={styles.modalPrimaryButtonText}>{savingEntry ? 'Saving…' : 'Save Changes'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalDeleteButton, (savingEntry || deletingEntry) && { opacity: 0.6 }]}
+              onPress={openDeleteEntryConfirm}
+              disabled={savingEntry || deletingEntry}
+            >
+              <Text style={styles.modalDeleteButtonText}>Delete Entry</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalCancelButton} onPress={closeEntryEditor}>
+              <Text style={styles.modalCancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={entryDeleteVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !deletingEntry && setEntryDeleteVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmSheet}>
+            <Text style={styles.modalTitle}>Delete Entry</Text>
+            <Text style={styles.modalText}>
+              {selectedEntry
+                ? `${formatEntryDate(selectedEntry.date)} • ${selectedEntry.quantity} jugs will be removed.`
+                : 'This entry will be removed.'}
+            </Text>
+            <TouchableOpacity
+              style={[styles.modalDeleteButton, deletingEntry && { opacity: 0.6 }]}
+              onPress={handleDeleteEntry}
+              disabled={deletingEntry}
+            >
+              <Text style={styles.modalDeleteButtonText}>{deletingEntry ? 'Deleting…' : 'Confirm Delete'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalCancelButton}
+              onPress={() => setEntryDeleteVisible(false)}
+              disabled={deletingEntry}
             >
               <Text style={styles.modalCancelButtonText}>Cancel</Text>
             </TouchableOpacity>
@@ -400,6 +624,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
+  entryMain: {
+    flex: 1,
+    marginRight: 12,
+  },
   lastRow: {
     marginBottom: 0,
   },
@@ -412,6 +640,23 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#2f6fed',
     fontWeight: '800',
+    marginTop: 6,
+  },
+  entryActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  entryEditButton: {
+    width: 42,
+    height: 42,
+    backgroundColor: '#e7f0ff',
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  entryIconText: {
+    fontSize: 18,
+    lineHeight: 20,
   },
   archiveHeaderRow: {
     flexDirection: 'row',
@@ -489,6 +734,13 @@ const styles = StyleSheet.create({
     padding: 28,
     paddingBottom: 40,
   },
+  confirmSheet: {
+    backgroundColor: '#fff',
+    marginHorizontal: 20,
+    borderRadius: 24,
+    padding: 24,
+    paddingBottom: 28,
+  },
   modalTitle: {
     fontSize: 25,
     fontWeight: '800',
@@ -517,6 +769,64 @@ const styles = StyleSheet.create({
     color: '#12344d',
     marginBottom: 16,
     backgroundColor: '#f8fbff',
+  },
+  fieldLabel: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#12344d',
+    marginBottom: 10,
+  },
+  editDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  editArrowButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#edf4fb',
+  },
+  editArrowDisabled: {
+    backgroundColor: '#f3f5f7',
+  },
+  editArrowText: {
+    fontSize: 30,
+    lineHeight: 32,
+    color: '#2f6fed',
+  },
+  editArrowTextDisabled: {
+    color: '#b8c3cc',
+  },
+  editDateDisplay: {
+    flex: 1,
+    marginHorizontal: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    backgroundColor: '#f8fbff',
+    borderWidth: 1.5,
+    borderColor: '#d8e2ea',
+  },
+  editDateText: {
+    fontSize: 18,
+    color: '#12344d',
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  modalPrimaryButton: {
+    backgroundColor: '#2f6fed',
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalPrimaryButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
   },
   modalDeleteButton: {
     backgroundColor: '#c94a37',

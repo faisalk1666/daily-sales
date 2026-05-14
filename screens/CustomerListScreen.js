@@ -18,18 +18,8 @@ import {
   addDoc,
   query,
   orderBy,
-  getDocs,
-  where,
 } from 'firebase/firestore';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 import { db } from '../firebase';
-import {
-  buildMonthlySalesCsv,
-  formatMonthKey,
-  getMonthKeyFromDate,
-  getNextMonthKey,
-} from '../utils/sales';
 
 function getInitials(name) {
   return name
@@ -43,12 +33,10 @@ function getInitials(name) {
 export default function CustomerListScreen({ navigation }) {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
-  const [exportVisible, setExportVisible] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [exportMonth, setExportMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
 
   useEffect(() => {
     const q = query(collection(db, 'customers'), orderBy('name', 'asc'));
@@ -62,6 +50,10 @@ export default function CustomerListScreen({ navigation }) {
     });
     return unsub;
   }, []);
+
+  const filteredCustomers = searchQuery.trim()
+    ? customers.filter((c) => c.name.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+    : customers;
 
   const handleAddCustomer = async () => {
     const trimmed = newName.trim();
@@ -78,89 +70,6 @@ export default function CustomerListScreen({ navigation }) {
       Alert.alert('Error', 'Could not add customer. Try again.');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const moveExportMonth = (amount) => {
-    setExportMonth((currentMonth) => new Date(currentMonth.getFullYear(), currentMonth.getMonth() + amount, 1));
-  };
-
-  const handleExportMonth = async () => {
-    if (!customers.length) {
-      Alert.alert('Nothing to export', 'Add a customer first, then export monthly sales.');
-      return;
-    }
-
-    setExporting(true);
-    try {
-      const monthKey = getMonthKeyFromDate(exportMonth);
-      const nextMonthKey = getNextMonthKey(monthKey);
-      const rows = await Promise.all(
-        customers.map(async (customer) => {
-          const monthlyEntries = await getDocs(
-            query(
-              collection(db, 'customers', customer.id, 'entries'),
-              where('date', '>=', `${monthKey}-01`),
-              where('date', 'lt', `${nextMonthKey}-01`)
-            )
-          );
-
-          return {
-            name: customer.name,
-            entriesCount: monthlyEntries.size,
-            totalQuantity: monthlyEntries.docs.reduce((sum, entryDoc) => {
-              return sum + (Number(entryDoc.data().quantity) || 0);
-            }, 0),
-          };
-        })
-      );
-
-      const activeRows = rows
-        .filter((row) => row.totalQuantity > 0)
-        .sort((left, right) => right.totalQuantity - left.totalQuantity || left.name.localeCompare(right.name));
-
-      if (!activeRows.length) {
-        Alert.alert('No sales found', `No sales were recorded in ${formatMonthKey(monthKey)}.`);
-        return;
-      }
-
-      const csv = buildMonthlySalesCsv({
-        monthLabel: formatMonthKey(monthKey),
-        rows: activeRows,
-      });
-      const filename = `kabir-aqua-sales-${monthKey}.csv`;
-
-      if (Platform.OS === 'web') {
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = window.URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = filename;
-        document.body.appendChild(anchor);
-        anchor.click();
-        document.body.removeChild(anchor);
-        window.URL.revokeObjectURL(url);
-      } else {
-        const fileUri = `${FileSystem.cacheDirectory}${filename}`;
-        await FileSystem.writeAsStringAsync(fileUri, csv, {
-          encoding: FileSystem.EncodingType.UTF8,
-        });
-
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(fileUri, {
-            mimeType: 'text/csv',
-            dialogTitle: `${formatMonthKey(monthKey)} sales export`,
-          });
-        } else {
-          Alert.alert('Export saved', `The file was saved to ${fileUri}`);
-        }
-      }
-
-      setExportVisible(false);
-    } catch (error) {
-      Alert.alert('Export failed', 'Could not export monthly sales. Please try again.');
-    } finally {
-      setExporting(false);
     }
   };
 
@@ -191,7 +100,7 @@ export default function CustomerListScreen({ navigation }) {
         <View>
           <Text style={styles.heroLabel}>Customer Ledger</Text>
           <Text style={styles.heroTitle}>Simple monthly tracking</Text>
-          <Text style={styles.heroSubtext}>Large cards, quick export, easy updates.</Text>
+          <Text style={styles.heroSubtext}>Track deliveries, calculate bills easily.</Text>
         </View>
         <View style={styles.countPill}>
           <Text style={styles.countNumber}>{customers.length}</Text>
@@ -199,9 +108,26 @@ export default function CustomerListScreen({ navigation }) {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.exportButton} onPress={() => setExportVisible(true)} activeOpacity={0.84}>
-        <Text style={styles.exportButtonText}>Export Monthly Sales</Text>
+      <TouchableOpacity style={styles.billButton} onPress={() => navigation.navigate('BillCalculator')} activeOpacity={0.84}>
+        <Text style={styles.billButtonText}>🧾  Bill Calculator</Text>
       </TouchableOpacity>
+
+      <View style={styles.searchWrap}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search customers…"
+          placeholderTextColor="#99a7b3"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity style={styles.searchClear} onPress={() => setSearchQuery('')} activeOpacity={0.7}>
+            <Text style={styles.searchClearText}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 
@@ -211,15 +137,24 @@ export default function CustomerListScreen({ navigation }) {
         <ActivityIndicator size="large" color="#2f6fed" style={{ marginTop: 60 }} />
       ) : (
         <FlatList
-          data={customers}
+          data={filteredCustomers}
           keyExtractor={(item) => item.id}
           renderItem={renderCustomer}
           contentContainerStyle={styles.list}
           ListHeaderComponent={listHeader}
           ListEmptyComponent={
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>No customers yet</Text>
-              <Text style={styles.emptyText}>Add your first customer below to start the monthly notebook.</Text>
+              {searchQuery.trim() ? (
+                <>
+                  <Text style={styles.emptyTitle}>No results</Text>
+                  <Text style={styles.emptyText}>No customers match "{searchQuery.trim()}".</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.emptyTitle}>No customers yet</Text>
+                  <Text style={styles.emptyText}>Add your first customer below to start the monthly notebook.</Text>
+                </>
+              )}
             </View>
           }
         />
@@ -265,42 +200,7 @@ export default function CustomerListScreen({ navigation }) {
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal
-        visible={exportVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setExportVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Export Monthly Sales</Text>
-            <Text style={styles.modalBodyText}>Choose the month you want to export as a CSV file.</Text>
 
-            <View style={styles.monthPicker}>
-              <TouchableOpacity style={styles.monthArrow} onPress={() => moveExportMonth(-1)}>
-                <Text style={styles.monthArrowText}>‹</Text>
-              </TouchableOpacity>
-              <View style={styles.monthValueWrap}>
-                <Text style={styles.monthValue}>{formatMonthKey(getMonthKeyFromDate(exportMonth))}</Text>
-              </View>
-              <TouchableOpacity style={styles.monthArrow} onPress={() => moveExportMonth(1)}>
-                <Text style={styles.monthArrowText}>›</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.saveButton, exporting && { opacity: 0.6 }]}
-              onPress={handleExportMonth}
-              disabled={exporting}
-            >
-              <Text style={styles.saveButtonText}>{exporting ? 'Preparing…' : 'Export CSV'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => setExportVisible(false)}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -423,16 +323,44 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: '#2f6fed',
   },
-  exportButton: {
-    backgroundColor: '#dff0e6',
+  billButton: {
+    backgroundColor: '#fff4e0',
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 18,
     alignItems: 'center',
+    marginBottom: 14,
   },
-  exportButtonText: {
-    color: '#1c7a4a',
+  billButtonText: {
+    color: '#a05c00',
     fontSize: 18,
+    fontWeight: '700',
+  },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    elevation: 2,
+    shadowColor: '#0d2233',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 16,
+    fontSize: 18,
+    color: '#12344d',
+  },
+  searchClear: {
+    paddingLeft: 10,
+    paddingVertical: 10,
+  },
+  searchClearText: {
+    fontSize: 17,
+    color: '#99a7b3',
     fontWeight: '700',
   },
   emptyCard: {
@@ -529,31 +457,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#888',
   },
-  monthPicker: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 18,
-  },
-  monthArrow: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: '#eef4f8',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  monthArrowText: {
-    fontSize: 30,
-    color: '#12344d',
-    marginTop: -2,
-  },
-  monthValueWrap: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  monthValue: {
-    fontSize: 21,
-    fontWeight: '800',
-    color: '#12344d',
-  },
+
 });

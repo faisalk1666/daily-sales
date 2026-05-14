@@ -4,6 +4,7 @@
     "slug": "new-kabir-aqua",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
       "backgroundColor": "#eef4f8"
@@ -13,7 +14,11 @@
       "bundleIdentifier": "com.kabiraqua.app"
     },
     "android": {
-      "package": "com.kabiraqua.app"
+      "package": "com.kabiraqua.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#eef4f8"
+      }
     },
     "plugins": [],
     "extra": {
