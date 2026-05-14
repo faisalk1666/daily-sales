@@ -11,9 +11,8 @@ import {
   KeyboardAvoidingView,
   ScrollView,
 } from 'react-native';
-import { collection, addDoc, getDocs, query, where, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
-import { addDays, formatLongDate, getLastNDates, normalizeDate, toDateString } from '../utils/sales';
+import { addDays, formatLongDate, getLastNDates, normalizeDate, saveOrMergeEntry, toDateString } from '../utils/sales';
 
 export default function AddEntryScreen({ route, navigation }) {
   const { customerId, customerName } = route.params;
@@ -38,31 +37,6 @@ export default function AddEntryScreen({ route, navigation }) {
 
   const isToday = toDateString(date) === toDateString(today);
 
-  const saveOrMergeEntry = async (dateString, quantityValue) => {
-    const entriesRef = collection(db, 'customers', customerId, 'entries');
-    const existingEntries = await getDocs(query(entriesRef, where('date', '==', dateString)));
-
-    if (!existingEntries.size) {
-      await addDoc(entriesRef, {
-        date: dateString,
-        quantity: quantityValue,
-      });
-      return;
-    }
-
-    const [firstEntry, ...restEntries] = existingEntries.docs;
-    const currentTotal = existingEntries.docs.reduce((sum, entryDoc) => {
-      return sum + (Number(entryDoc.data().quantity) || 0);
-    }, 0);
-    const batch = writeBatch(db);
-    batch.update(firstEntry.ref, {
-      date: dateString,
-      quantity: currentTotal + quantityValue,
-    });
-    restEntries.forEach((entryDoc) => batch.delete(entryDoc.ref));
-    await batch.commit();
-  };
-
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -74,7 +48,7 @@ export default function AddEntryScreen({ route, navigation }) {
           return;
         }
 
-        await saveOrMergeEntry(toDateString(date), qty);
+        await saveOrMergeEntry(db, customerId, toDateString(date), qty);
       } else {
         if (!batchDays.trim() || isNaN(parseInt(batchDays, 10)) || parseInt(batchDays, 10) <= 0) {
           Alert.alert('Invalid day range', 'Enter how many recent days you want to add, for example 7.');
@@ -96,7 +70,7 @@ export default function AddEntryScreen({ route, navigation }) {
         }
 
         for (const item of payload) {
-          await saveOrMergeEntry(item.dateString, item.quantityValue);
+          await saveOrMergeEntry(db, customerId, item.dateString, item.quantityValue);
         }
       }
 

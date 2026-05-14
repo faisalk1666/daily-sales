@@ -112,6 +112,10 @@ export default function CustomerListScreen({ navigation }) {
         <Text style={styles.billButtonText}>🧾  Bill Calculator</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity style={styles.batchButton} onPress={() => navigation.navigate('BatchCustomerEntry')} activeOpacity={0.84}>
+        <Text style={styles.batchButtonText}>📦  Batch Entry For Many Customers</Text>
+      </TouchableOpacity>
+
       <View style={styles.searchWrap}>
         <TextInput
           style={styles.searchInput}
@@ -333,6 +337,19 @@ const styles = StyleSheet.create({
   },
   billButtonText: {
     color: '#a05c00',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  batchButton: {
+    backgroundColor: '#e8f6ee',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  batchButtonText: {
+    color: '#1e7b4d',
     fontSize: 18,
     fontWeight: '700',
   },

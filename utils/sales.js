@@ -1,3 +1,5 @@
+import { addDoc, collection, getDocs, query, where, writeBatch } from 'firebase/firestore';
+
 export function toDateString(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -72,25 +74,27 @@ export function formatLongDate(date) {
   });
 }
 
-export function buildMonthlySalesCsv({ monthLabel, rows }) {
-  const header = ['Monthly Sales Export', monthLabel, ''];
-  const columns = ['Customer Name', 'Entries', 'Total Jugs'];
-  const body = rows.map((row) => [
-    escapeCsvValue(row.name),
-    row.entriesCount,
-    row.totalQuantity,
-  ].join(','));
-  const totalQuantity = rows.reduce((sum, row) => sum + row.totalQuantity, 0);
-  const totalEntries = rows.reduce((sum, row) => sum + row.entriesCount, 0);
-  const footer = ['', `Customers,${rows.length}`, `Entries,${totalEntries}`, `Total Jugs,${totalQuantity}`];
+export async function saveOrMergeEntry(db, customerId, dateString, quantityValue) {
+  const entriesRef = collection(db, 'customers', customerId, 'entries');
+  const existingEntries = await getDocs(query(entriesRef, where('date', '==', dateString)));
 
-  return [...header, columns.join(','), ...body, ...footer].join('\n');
-}
-
-function escapeCsvValue(value) {
-  const stringValue = String(value ?? '');
-  if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-    return `"${stringValue.replace(/"/g, '""')}"`;
+  if (!existingEntries.size) {
+    await addDoc(entriesRef, {
+      date: dateString,
+      quantity: quantityValue,
+    });
+    return;
   }
-  return stringValue;
+
+  const [firstEntry, ...restEntries] = existingEntries.docs;
+  const currentTotal = existingEntries.docs.reduce((sum, entryDoc) => {
+    return sum + (Number(entryDoc.data().quantity) || 0);
+  }, 0);
+  const batch = writeBatch(db);
+  batch.update(firstEntry.ref, {
+    date: dateString,
+    quantity: currentTotal + quantityValue,
+  });
+  restEntries.forEach((entryDoc) => batch.delete(entryDoc.ref));
+  await batch.commit();
 }

@@ -9,6 +9,7 @@ import CustomerListScreen from './screens/CustomerListScreen';
 import CustomerDetailScreen from './screens/CustomerDetailScreen';
 import AddEntryScreen from './screens/AddEntryScreen';
 import BillCalculatorScreen from './screens/BillCalculatorScreen';
+import BatchCustomerEntryScreen from './screens/BatchCustomerEntryScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -44,6 +45,11 @@ export default function App() {
           name="BillCalculator"
           component={BillCalculatorScreen}
           options={{ title: 'Bill Calculator' }}
+        />
+        <Stack.Screen
+          name="BatchCustomerEntry"
+          component={BatchCustomerEntryScreen}
+          options={{ title: 'Batch Entry' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
