@@ -36,7 +36,8 @@ import {
 } from '../utils/sales';
 
 export default function CustomerDetailScreen({ route, navigation }) {
-  const { customerId, customerName } = route.params;
+  const { customerId, customerName: initialName } = route.params;
+  const [name, setName] = useState(initialName);
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedMonths, setExpandedMonths] = useState({});
@@ -50,10 +51,46 @@ export default function CustomerDetailScreen({ route, navigation }) {
   const [savingEntry, setSavingEntry] = useState(false);
   const [entryDeleteVisible, setEntryDeleteVisible] = useState(false);
   const [deletingEntry, setDeletingEntry] = useState(false);
+  const [renameVisible, setRenameVisible] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [renaming, setRenaming] = useState(false);
 
   useLayoutEffect(() => {
-    navigation.setOptions({ title: customerName });
-  }, [navigation, customerName]);
+    navigation.setOptions({
+      title: name,
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => { setNewName(name); setRenameVisible(true); }}
+          style={{ marginRight: 16, padding: 8, borderRadius: 10, backgroundColor: '#eef4fc' }}
+          activeOpacity={0.7}
+        >
+          <Text style={{ fontSize: 18, color: '#2f6fed', lineHeight: 20 }}>✎</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, name]);
+
+  const handleRename = async () => {
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      Alert.alert('Name required', 'Please enter a customer name.');
+      return;
+    }
+    if (trimmed === name) {
+      setRenameVisible(false);
+      return;
+    }
+    setRenaming(true);
+    try {
+      await updateDoc(doc(db, 'customers', customerId), { name: trimmed });
+      setName(trimmed);
+      setRenameVisible(false);
+    } catch (e) {
+      Alert.alert('Error', 'Could not rename customer. Please try again.');
+    } finally {
+      setRenaming(false);
+    }
+  };
 
   useEffect(() => {
     const customerEntriesQuery = query(
@@ -68,6 +105,7 @@ export default function CustomerDetailScreen({ route, navigation }) {
     return unsubscribe;
   }, [customerId]);
 
+  const customerName = name;
   const totalQty = entries.reduce((sum, entry) => sum + (Number(entry.quantity) || 0), 0);
   const currentMonthKey = getCurrentMonthKey();
   const currentMonthEntries = entries.filter((entry) => getMonthKeyFromDateString(entry.date) === currentMonthKey);
@@ -331,6 +369,44 @@ export default function CustomerDetailScreen({ route, navigation }) {
       )}
 
       <Modal
+        visible={renameVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => !renaming && setRenameVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Rename Customer</Text>
+            <TextInput
+              style={styles.confirmInput}
+              value={newName}
+              onChangeText={setNewName}
+              placeholder="Customer name"
+              placeholderTextColor="#91a3b0"
+              autoCapitalize="words"
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={handleRename}
+            />
+            <TouchableOpacity
+              style={[styles.modalPrimaryButton, renaming && { opacity: 0.6 }]}
+              onPress={handleRename}
+              disabled={renaming}
+            >
+              <Text style={styles.modalPrimaryButtonText}>{renaming ? 'Saving…' : 'Save Name'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalCancelButton}
+              onPress={() => setRenameVisible(false)}
+              disabled={renaming}
+            >
+              <Text style={styles.modalCancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
         visible={deleteVisible}
         transparent
         animationType="slide"
@@ -480,7 +556,7 @@ export default function CustomerDetailScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#eef4f8',
+    backgroundColor: '#f2f6fa',
   },
   scrollContent: {
     padding: 16,

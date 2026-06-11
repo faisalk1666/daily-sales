@@ -264,7 +264,7 @@ export default function BillCalculatorScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#eef4f8',
+    backgroundColor: '#f2f6fa',
   },
   content: {
     padding: 16,

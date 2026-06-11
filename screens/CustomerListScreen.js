@@ -83,38 +83,20 @@ export default function CustomerListScreen({ navigation }) {
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
         </View>
-        <View style={styles.cardBody}>
-          <Text style={styles.cardText}>{item.name}</Text>
-          <Text style={styles.cardHint}>Open customer notebook</Text>
-        </View>
+        <Text style={styles.cardText}>{item.name}</Text>
       </View>
-      <View style={styles.cardArrowWrap}>
-        <Text style={styles.cardArrow}>›</Text>
-      </View>
+      <Text style={styles.cardArrow}>›</Text>
     </TouchableOpacity>
   );
 
   const listHeader = (
     <View style={styles.headerWrap}>
-      <View style={styles.heroCard}>
-        <View>
-          <Text style={styles.heroLabel}>Customer Ledger</Text>
-          <Text style={styles.heroTitle}>Simple monthly tracking</Text>
-          <Text style={styles.heroSubtext}>Track deliveries, calculate bills easily.</Text>
-        </View>
-        <View style={styles.countPill}>
-          <Text style={styles.countNumber}>{customers.length}</Text>
-          <Text style={styles.countLabel}>customers</Text>
+      <View style={styles.statsRow}>
+        <Text style={styles.pageTitle}>All Customers</Text>
+        <View style={styles.countChip}>
+          <Text style={styles.countChipText}>{customers.length}</Text>
         </View>
       </View>
-
-      <TouchableOpacity style={styles.billButton} onPress={() => navigation.navigate('BillCalculator')} activeOpacity={0.84}>
-        <Text style={styles.billButtonText}>🧾  Bill Calculator</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.batchButton} onPress={() => navigation.navigate('BatchCustomerEntry')} activeOpacity={0.84}>
-        <Text style={styles.batchButtonText}>📦  Batch Entry For Many Customers</Text>
-      </TouchableOpacity>
 
       <View style={styles.searchWrap}>
         <TextInput
@@ -212,76 +194,52 @@ export default function CustomerListScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#eef4f8',
+    backgroundColor: '#f2f6fa',
   },
   list: {
     padding: 16,
-    paddingBottom: 110,
+    paddingBottom: 100,
   },
   headerWrap: {
     marginBottom: 12,
   },
-  heroCard: {
-    backgroundColor: '#12344d',
-    borderRadius: 24,
-    padding: 22,
+  statsRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 14,
+    paddingHorizontal: 2,
   },
-  heroLabel: {
-    color: '#9fc2de',
-    fontSize: 13,
+  pageTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#12344d',
+  },
+  countChip: {
+    backgroundColor: '#dce8ff',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  countChipText: {
+    color: '#2f6fed',
+    fontSize: 15,
     fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.9,
-    marginBottom: 8,
-  },
-  heroTitle: {
-    color: '#fff',
-    fontSize: 26,
-    fontWeight: '800',
-    marginBottom: 6,
-  },
-  heroSubtext: {
-    color: '#d5e3ee',
-    fontSize: 16,
-    lineHeight: 23,
-    maxWidth: 210,
-  },
-  countPill: {
-    backgroundColor: '#1f4f73',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 18,
-    alignItems: 'center',
-    minWidth: 92,
-  },
-  countNumber: {
-    color: '#fff',
-    fontSize: 28,
-    fontWeight: '800',
-  },
-  countLabel: {
-    color: '#c8dced',
-    fontSize: 13,
-    marginTop: 2,
   },
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 20,
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    marginBottom: 14,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    elevation: 2,
+    elevation: 1,
     shadowColor: '#0d2233',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
   },
   cardLeft: {
     flexDirection: 'row',
@@ -289,69 +247,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatar: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
+    width: 42,
+    height: 42,
+    borderRadius: 13,
     backgroundColor: '#dce8ff',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
   avatarText: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '800',
     color: '#2f6fed',
   },
-  cardBody: {
-    flex: 1,
-  },
   cardText: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '600',
     color: '#10212f',
   },
-  cardHint: {
-    marginTop: 4,
-    fontSize: 15,
-    color: '#6f8291',
-  },
-  cardArrowWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: '#eff5fb',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   cardArrow: {
-    fontSize: 28,
-    color: '#2f6fed',
-  },
-  billButton: {
-    backgroundColor: '#fff4e0',
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  billButtonText: {
-    color: '#a05c00',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  batchButton: {
-    backgroundColor: '#e8f6ee',
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  batchButtonText: {
-    color: '#1e7b4d',
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 22,
+    color: '#b0bec9',
   },
   searchWrap: {
     flexDirection: 'row',

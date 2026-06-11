@@ -144,11 +144,6 @@ export default function BatchCustomerEntryScreen({ navigation }) {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={styles.heroCard}>
-          <Text style={styles.heroTitle}>Batch customer entry</Text>
-          <Text style={styles.heroText}>Pick one date, select multiple customers, then enter jug quantities for each selected customer.</Text>
-        </View>
-
         <View style={styles.dateCard}>
           <Text style={styles.sectionLabel}>Date</Text>
           <View style={styles.dateRow}>
@@ -214,7 +209,7 @@ export default function BatchCustomerEntryScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    backgroundColor: '#eef4f8',
+    backgroundColor: '#f2f6fa',
     padding: 20,
     paddingBottom: 36,
   },
